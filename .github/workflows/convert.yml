@@ -1,14 +1,14 @@
-name: Convert MKV to TS (rclone + tsMuxeR)
+name: Convert all MKV to TS (rclone + tsMuxeR)
 
 on:
   workflow_dispatch:
 
 jobs:
-  mux:
+  mux-all:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install dependencies
@@ -25,11 +25,14 @@ jobs:
           echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
           rclone listremotes
 
-      - name: Example: Convert one file
+      - name: List MKV files in SOURCE_REMOTE
         run: |
-          SRC="${{ vars.SOURCE_REMOTE }}test.mkv"
-          DST="${{ vars.TARGET_REMOTE }}test.ts"
-          echo "Converting $SRC → $DST"
-          rclone copyto "$SRC" /tmp/source.mkv
-          tsMuxeR /tmp/source.mkv /tmp/output.ts
-          rclone copyto /tmp/output.ts "$DST"
+          echo "Files in ${{ vars.SOURCE_REMOTE }}:"
+          rclone lsf ${{ vars.SOURCE_REMOTE }} --include "*.mkv"
+
+      - name: Convert all MKV to TS
+        run: |
+          FILES=$(rclone lsf ${{ vars.SOURCE_REMOTE }} --include "*.mkv")
+          for f in $FILES; do
+            echo "Processing $f ..."
+            SRC="${{ vars.SOURCE_REMOTE }}$f"
