@@ -1,0 +1,33 @@
+name: Get Ubuntu VM with SSH
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ubuntu-ssh:
+    runs-on: ubuntu-latest
+
+    env:
+      SSH_USER: runner
+      SSH_PORT: 2222
+
+    steps:
+      - name: Install SSH server
+        run: |
+          sudo apt update
+          sudo apt install -y openssh-server
+          sudo mkdir -p /var/run/sshd
+
+      - name: Set password for runner
+        run: |
+          echo "${{ env.SSH_USER }}:github" | sudo chpasswd
+
+      - name: Allow root login via password (optional)
+        run: |
+          sudo sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+
+      - name: Show SSH command
+        run: |
+          echo "Connect using:"
+          echo "ssh ${SSH_USER}@${{ runner.ip }} -p ${SSH_PORT} -o StrictHostKeyChecking=no"
