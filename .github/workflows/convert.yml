@@ -1,0 +1,35 @@
+name: Convert MKV to TS (rclone + tsMuxeR)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y rclone wget
+          wget https://github.com/justdan96/tsMuxer/releases/download/nightly/tsMuxer-CLI.Linux.tar.gz
+          tar -xzf tsMuxer-CLI.Linux.tar.gz
+          sudo mv tsMuxer/tsMuxeR /usr/local/bin/
+
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+          rclone listremotes
+
+      - name: Example: Convert one file
+        run: |
+          SRC="${{ vars.SOURCE_REMOTE }}test.mkv"
+          DST="${{ vars.TARGET_REMOTE }}test.ts"
+          echo "Converting $SRC → $DST"
+          rclone copyto "$SRC" /tmp/source.mkv
+          tsMuxeR /tmp/source.mkv /tmp/output.ts
+          rclone copyto /tmp/output.ts "$DST"
