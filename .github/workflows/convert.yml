@@ -6,6 +6,9 @@ on:
 jobs:
   mux-all:
     runs-on: ubuntu-latest
+    env:
+      SRC_REMOTE: ${{ vars.SOURCE_REMOTE }}   # source remote, напр. dropbox:
+      DST_REMOTE: ${{ vars.TARGET_REMOTE }}   # target remote, напр. dropbox1:
 
     steps:
       - name: Checkout repository
@@ -14,10 +17,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y rclone wget
+          sudo apt install -y rclone wget tar
           wget https://github.com/justdan96/tsMuxer/releases/download/nightly/tsMuxer-CLI.Linux.tar.gz
           tar -xzf tsMuxer-CLI.Linux.tar.gz
           sudo mv tsMuxer/tsMuxeR /usr/local/bin/
+          chmod +x /usr/local/bin/tsMuxeR
 
       - name: Configure rclone
         run: |
@@ -27,10 +31,30 @@ jobs:
 
       - name: List MKV files in SOURCE_REMOTE
         run: |
-          echo "Files in ${{ vars.SOURCE_REMOTE }}:"
-          rclone lsf ${{ vars.SOURCE_REMOTE }} --include "*.mkv"
+          echo "Files in $SRC_REMOTE:"
+          rclone lsf "$SRC_REMOTE" --include "*.mkv"
 
       - name: Convert all MKV to TS
+        run: |
+          FILES=$(rclone lsf "$SRC_REMOTE" --include "*.mkv")
+          for f in $FILES; do
+            echo "Processing $f ..."
+            SRC="$SRC_REMOTE$f"
+            DST="$DST_REMOTE${f%.mkv}.ts"
+
+            echo "Copying $SRC to /tmp/source.mkv"
+            rclone copyto "$SRC" /tmp/source.mkv
+
+            echo "Muxing /tmp/source.mkv → /tmp/output.ts"
+            tsMuxeR /tmp/source.mkv /tmp/output.ts
+
+            echo "Uploading /tmp/output.ts → $DST"
+            rclone copyto /tmp/output.ts "$DST"
+
+            rm /tmp/source.mkv /tmp/output.ts
+            echo "✔ Finished: $f → ${f%.mkv}.ts"
+          done
+
         run: |
           FILES=$(rclone lsf ${{ vars.SOURCE_REMOTE }} --include "*.mkv")
           for f in $FILES; do
